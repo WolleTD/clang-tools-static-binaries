@@ -2,7 +2,7 @@ name: clang-tools-8_linux-amd64
 
 on:
   push:
-    branches: [ master ]
+    branches: [ gcc10-ub2004 ]
 
 jobs:
   build-and-deploy:
