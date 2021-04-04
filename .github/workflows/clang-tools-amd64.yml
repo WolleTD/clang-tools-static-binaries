@@ -2,11 +2,12 @@ name: clang-tools_linux-amd64
 
 on:
   push:
-    branches: [ master ]
+    branches: [ matrix ]
 
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         clang-version: [ 3.9, 4, 5, 6, 7, 8, 9, 10, 11, 12 ]
         os: [ linux, macosx, windows ]
