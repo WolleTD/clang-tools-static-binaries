@@ -56,7 +56,7 @@ jobs:
             get-ver: '$version = $env:RELEASE -replace "^llvm-project-" -replace ".src$" -replace "rc", "-rc"'
             os-cmake-args: '-Thost=x64 -DCMAKE_CXX_FLAGS="/MP /std:c++14" -DLLVM_USE_CRT_MINSIZEREL="MT"'
             build-args: '--config MinSizeRel'
-            bindir: '\build\MinSizeRel\bin'
+            bindir: '/build/MinSizeRel/bin'
             dotexe: '.exe'
             shacmd: 'sha512sum.exe'
             extra-tar-args: '--exclude=${env:RELEASE}/clang/test/Driver/Inputs/* --exclude=${env:RELEASE}/libcxx/test/std/input.output/filesystems/Inputs/static_test_env/* --exclude=${env:RELEASE}/libclc/amdgcn-mesa3d'
