@@ -1,0 +1,106 @@
+name: clang-tools_macosx-amd64
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        clang-version: [ 3.9, 4, 5, 6, 7, 8, 9, 10, 11, 12 ]
+        include:
+          - clang-version: 3.9
+            release: llvm-project-3.9.1
+            extra-args: '-DLLVM_EXTERNAL_CLANG_SOURCE_DIR=../clang -DLLVM_EXTERNAL_CLANG_TOOLS_EXTRA_SOURCE_DIR=../clang-tools-extra'
+          - clang-version: 4
+            release: llvm-project-4.0.1
+          - clang-version: 5
+            release: llvm-project-5.0.2
+          - clang-version: 6
+            release: llvm-project-6.0.1
+          - clang-version: 7
+            release: llvm-project-7.1.0
+          - clang-version: 8
+            release: llvm-project-8.0.1
+          - clang-version: 9
+            release: llvm-project-9.0.1
+          - clang-version: 10
+            release: llvm-project-10.0.1
+          - clang-version: 11
+            release: llvm-project-11.1.0.src
+          - clang-version: 12
+            release: llvm-project-12.0.0rc4.src
+    env:
+      COMMON_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_SHARED_LIBS=OFF -DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto" -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15'
+      RELEASE: '${{ matrix.release }}'
+    steps:
+    - uses: actions/checkout@v2
+    - name: get llvm-project
+      if: ${{ matrix.clang-version < 7 }}
+      run: |
+        version=${RELEASE##llvm-project-}
+        wget https://releases.llvm.org/${version}/llvm-${version}.src.tar.xz
+        wget https://releases.llvm.org/${version}/cfe-${version}.src.tar.xz
+        wget https://releases.llvm.org/${version}/clang-tools-extra-${version}.src.tar.xz
+    - name: get llvm-project
+      if: ${{ matrix.clang-version == 7 || matrix.clang-version == 8 }}
+      run: |
+        version=${RELEASE##llvm-project-}
+        wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-${version}.src.tar.xz
+        wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/cfe-${version}.src.tar.xz
+        wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/clang-tools-extra-${version}.src.tar.xz
+    - name: unpack llvm-project
+      if: ${{ matrix.clang-version < 9 }}
+      run: |
+        version=${RELEASE##llvm-project-}
+        tar xf llvm-${version}.src.tar.xz
+        tar xf cfe-${version}.src.tar.xz
+        tar xf clang-tools-extra-${version}.src.tar.xz
+        mkdir ${{ matrix.release }}
+        mv llvm-${version}.src ${{ matrix.release }}/llvm
+        mv cfe-${version}.src ${{ matrix.release }}/clang
+        mv clang-tools-extra-${version}.src ${{ matrix.release }}/clang-tools-extra
+    - name: patch clang-8 includes
+      if: ${{ matrix.clang-version == 8 }}
+      run: patch ${{ matrix.release }}/llvm/include/llvm/Demangle/MicrosoftDemangleNodes.h include-cstdint-string-prior-to-using-uint8_t.patch
+    - name: get and unpack llvm-project
+      if: ${{ matrix.clang-version >= 9 }}
+      run: |
+        version=${RELEASE#llvm-project-}
+        version=${version%.src}
+        version=${version/rc/-rc}
+        wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/${{ matrix.release }}.tar.xz
+        tar xf ${{ matrix.release }}.tar.xz
+    - name: make build directory
+      run: mkdir -p ${{ matrix.release }}/build
+    - name: cmake
+      run: cd ${{ matrix.release }}/build && cmake ../llvm -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra" ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.extra-args }}
+    #- name: build
+    #  run: cd ${{ matrix.release }}/build && make clang-format clang-query clang-tidy -j$(sysctl -n hw.ncpu)
+    #- name: print dependencies
+    #  run: otool -L ${{ matrix.release }}/build/bin/clang-format
+    #- name: rename output binary
+    #  run: |
+    #    cd ${{ matrix.release }}/build/bin
+    #    mv clang-format clang-format-${{ matrix.clang-version }}_macosx-amd64
+    #    mv clang-query clang-query-${{ matrix.clang-version }}_macosx-amd64
+    #    mv clang-tidy clang-tidy-${{ matrix.clang-version }}_macosx-amd64
+    #- name: create and print sha512sum
+    #  run: |
+    #    cd ${{ matrix.release }}/build/bin
+    #    shasum -a512 clang-format-${{ matrix.clang-version }}_macosx-amd64 > clang-format-${{ matrix.clang-version }}_macosx-amd64.sha512sum
+    #    shasum -a512 clang-query-${{ matrix.clang-version }}_macosx-amd64 > clang-query-${{ matrix.clang-version }}_macosx-amd64.sha512sum
+    #    shasum -a512 clang-tidy-${{ matrix.clang-version }}_macosx-amd64 > clang-tidy-${{ matrix.clang-version }}_macosx-amd64.sha512sum
+    #    echo "Checksums are: "
+    #    cat clang-format-${{ matrix.clang-version }}_macosx-amd64.sha512sum
+    #    cat clang-query-${{ matrix.clang-version }}_macosx-amd64.sha512sum
+    #    cat clang-tidy-${{ matrix.clang-version }}_macosx-amd64.sha512sum
+    #- name: upload release
+    #  uses: xresloader/upload-to-github-release@v1
+    #  env:
+    #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #  with:
+    #    file: "${{ matrix.release }}/build/bin/clang-*-${{ matrix.clang-version }}_macosx-amd64*"
+    #    draft: true
