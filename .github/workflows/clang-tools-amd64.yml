@@ -2,7 +2,7 @@ name: clang-tools_linux-amd64
 
 on:
   push:
-    branches: [ master ]
+    branches: [ matrix ]
 
 jobs:
   build:
