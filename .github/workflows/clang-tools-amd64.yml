@@ -68,10 +68,16 @@ jobs:
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
     steps:
-    - uses: actions/checkout@v2
     - name: install wget
       if: ${{ matrix.os == 'windows' }}
       run: choco install wget
+    - name: download patches
+      # we download a tarball of this repo, as the presence of a .git directory leaks
+      # the commit hash of this repository into the clang binaries
+      run: |
+        ${{ matrix.set-env }}
+        wget -O src.tar.gz https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz
+        tar xf src.tar.gz --strip 1
     - name: get llvm-project
       if: ${{ matrix.clang-version < 7 }}
       run: |
@@ -117,12 +123,15 @@ jobs:
 
     - name: patch clang-3.9 constify operator
       if: ${{ matrix.clang-version == 3.9 && matrix.os == 'windows' }}
+      shell: bash
       run: patch ${{ matrix.release }}/llvm/utils/TableGen/AsmWriterEmitter.cpp windows-clang-3.9_constify-operator.patch
     - name: patch clang-8 includes
       if: ${{ matrix.clang-version == 8 }}
+      shell: bash
       run: patch ${{ matrix.release }}/llvm/include/llvm/Demangle/MicrosoftDemangleNodes.h include-cstdint-string-prior-to-using-uint8_t.patch
     - name: patch trivially-copyable clang 9/10
       if: ${{ ( matrix.clang-version == 9 || matrix.clang-version == 10 ) && matrix.os == 'windows' }}
+      shell: bash
       run: patch ${{ matrix.release }}/llvm/cmake/config-ix.cmake windows-clang-9-10-trivially-copyable-mismatch.patch
     - name: cmake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
